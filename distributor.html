@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Certificate Verification</title>
+  <title>Distributor/Consumer Portal - Certificate Transfer</title>
 
   <style>
     body {
@@ -31,7 +31,7 @@
       font-weight: 700;
       margin-bottom: 25px;
       color: #ffffff;
-      border-bottom: 4px solid #00d4ff;
+      border-bottom: 4px solid #ffd700;
       display: inline-block;
       padding-bottom: 6px;
       width: 100%;
@@ -49,59 +49,65 @@
     }
 
     .section {
-      background: linear-gradient(145deg, #252535, #2f2f3f);
-      border: 1px solid #00ff88;
+      background: linear-gradient(145deg, #2e2a25, #3a352f);
+      border: 1px solid #ffd700;
       padding: 25px;
       border-radius: 12px;
       margin-bottom: 25px;
-      box-shadow: 0 4px 15px rgba(0, 255, 136, 0.1);
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       animation: fadeInUp 0.8s ease;
     }
 
     .section:hover {
       transform: translateY(-4px);
-      box-shadow: 0 6px 20px rgba(0, 255, 136, 0.2);
+      box-shadow: 0 6px 20px rgba(255, 215, 0, 0.2);
     }
 
     h2 {
       margin-top: 0;
       font-size: 1.4rem;
-      border-left: 4px solid #00ff88;
+      border-left: 4px solid #ffd700;
       padding-left: 10px;
       margin-bottom: 15px;
       color: #ffffff;
     }
 
-    input[type="text"],
-    input[type="file"] {
+    h3 {
+      color: #ffffff;
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      color: #00ff88;
+      font-weight: 600;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"] {
       width: 100%;
       padding: 12px;
       border-radius: 8px;
       border: 1px solid #444;
       background: #1a1a1a;
       color: #ffffff;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
       font-size: 0.95rem;
       transition: border 0.3s ease, box-shadow 0.3s ease;
       box-sizing: border-box;
     }
 
-    input[type="text"]:focus,
-    input[type="file"]:focus {
-      border-color: #00d4ff;
+    input[type="text"]:focus {
+      border-color: #ffd700;
       outline: none;
-      box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
     }
 
     input[type="text"]::placeholder {
       color: #888;
-    }
-
-    .button-group {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
     }
 
     button {
@@ -112,7 +118,6 @@
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.2s ease, background 0.25s ease, box-shadow 0.3s ease;
-      flex: 1;
     }
 
     button:hover:not(:disabled) {
@@ -120,38 +125,33 @@
     }
 
     button:disabled {
-      opacity: 0.6;
+      background: #555;
+      color: #999;
       cursor: not-allowed;
+      opacity: 0.6;
     }
 
-    .verify-btn {
+    #connectWallet {
       background: linear-gradient(135deg, #00ff88, #00d4ff);
       color: #000;
+      width: 100%;
     }
 
-    .verify-btn:hover:not(:disabled) {
+    #connectWallet:hover {
       background: linear-gradient(135deg, #00cc6f, #00a8cc);
       box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);
     }
 
-    .scan-btn {
-      background: linear-gradient(135deg, #ff6b9d, #c44569);
-      color: #fff;
+    #transferCertBtn {
+      background: linear-gradient(135deg, #ffd700, #ffb300);
+      color: #000;
+      width: 100%;
+      margin-top: 10px;
     }
 
-    .scan-btn:hover:not(:disabled) {
-      background: linear-gradient(135deg, #ff5588, #b33a5a);
-      box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
-    }
-
-    .upload-btn {
-      background: linear-gradient(135deg, #9b59b6, #8e44ad);
-      color: #fff;
-    }
-
-    .upload-btn:hover:not(:disabled) {
-      background: linear-gradient(135deg, #8e44ad, #7d3c98);
-      box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+    #transferCertBtn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #ffb300, #ff8c00);
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
     }
 
     .status {
@@ -179,38 +179,10 @@
       border: 1px solid #00d4ff;
     }
 
-    .certificate-details {
-      background: linear-gradient(145deg, #2a2a3e, #1e1e2e);
-      padding: 20px;
-      border-radius: 8px;
-      margin-top: 15px;
-      border: 1px solid #444;
-    }
-
-    .certificate-details h4 {
-      margin-top: 0;
-      color: #00d4ff;
-    }
-
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      padding: 8px 0;
-      border-bottom: 1px solid #333;
-    }
-
-    .detail-label {
-      font-weight: bold;
-      color: #00ff88;
-      min-width: 180px;
-    }
-
-    .detail-value {
-      color: #e0e0e0;
-      word-break: break-all;
-      flex: 1;
-      text-align: right;
+    .warning {
+      background: linear-gradient(135deg, #4d3a1a, #3a2a0f);
+      color: #ffd700;
+      border: 1px solid #ffd700;
     }
 
     .loading {
@@ -221,7 +193,7 @@
 
     .spinner {
       border: 4px solid #333;
-      border-top: 4px solid #00d4ff;
+      border-top: 4px solid #ffd700;
       border-radius: 50%;
       width: 30px;
       height: 30px;
@@ -229,32 +201,26 @@
       margin: 0 auto 10px;
     }
 
-    #qrVideo {
-      display: none;
-      width: 100%;
-      max-width: 400px;
-      margin: 15px auto;
-      border-radius: 8px;
-      border: 2px solid #00d4ff;
-    }
-
-    .qr-container {
-      text-align: center;
-      margin: 15px 0;
-    }
-
-    .upload-section {
-      margin-top: 15px;
-      padding: 15px;
+    .transfer-card {
       background: linear-gradient(145deg, #2a2a3e, #1e1e2e);
+      padding: 20px;
       border-radius: 8px;
       border: 1px solid #444;
+      margin-top: 20px;
     }
 
-    .upload-section h3 {
+    .info-box {
+      background: linear-gradient(135deg, #1a2d4d, #0f1f3a);
+      border: 1px solid #00d4ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      color: #b0e0ff;
+    }
+
+    .info-box h4 {
       margin-top: 0;
-      color: #9b59b6;
-      font-size: 1.1rem;
+      color: #00d4ff;
     }
 
     @keyframes spin {
@@ -336,74 +302,68 @@
       h1 {
         font-size: 1.8rem;
       }
-
-      .button-group {
-        flex-direction: column;
-      }
-
-      .detail-row {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .detail-label {
-        margin-bottom: 5px;
-      }
-
-      .detail-value {
-        text-align: left;
-      }
     }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <h1>Certificate Verification</h1>
+    <h1>Distributor/Consumer Portal</h1>
 
     <div class="network-info" id="networkInfo">
       <strong>Network Status:</strong> Connecting to blockchain...
     </div>
 
     <div class="section">
-      <h2>Verify Certificate</h2>
-      <p style="color: #b0b0b0; margin-bottom: 15px;">No wallet connection required - Anyone can verify certificates</p>
+      <h2>Connect Wallet</h2>
       
-      <input type="text" id="verifyCertId" placeholder="Enter Certificate ID to verify">
-      
-      <div class="button-group">
-        <button class="verify-btn" id="verifyCertBtn">Verify Certificate</button>
-        <button class="scan-btn" id="scanQRButton">Scan QR Code</button>
+      <div id="connectionStatus" class="status warning">
+        <strong>Wallet Not Connected</strong><br>
+        Connect your MetaMask wallet to transfer certificates
       </div>
 
-      <div class="qr-container">
-        <video id="qrVideo" playsinline autoplay></video>
-      </div>
-
-      <div class="upload-section">
-        <h3>Or Upload QR Code Image</h3>
-        <input type="file" id="qrUpload" accept="image/*">
-        <button class="upload-btn" id="uploadQRBtn">Verify from Image</button>
-      </div>
-
-      <div class="loading" id="verifyLoading">
-        <div class="spinner"></div>
-        <p>Verifying certificate...</p>
-      </div>
-
-      <div id="verificationResult"></div>
+      <button id="connectWallet">Connect MetaMask</button>
     </div>
 
-    <div class="nav-links">
-      <p><strong>Need to manage certificates?</strong></p>
-      <a href="manufacturer.html">Manufacturer Portal</a>
-      <a href="distributor.html">Distributor/Consumer Portal</a>
+    <div class="section" id="transferSection" style="display: none;">
+      <h2>Certificate Transfer</h2>
+      <p style="color: #b0b0b0; margin-bottom: 15px;">Transfer certificate ownership to another wallet address</p>
+
+      <div class="info-box">
+        <h4>About Certificate Transfer</h4>
+        <p style="margin: 5px 0;">• Transfer certificates to distributors, retailers, or end consumers</p>
+        <p style="margin: 5px 0;">• Maintain product authenticity throughout the supply chain</p>
+        <p style="margin: 5px 0;">• Track ownership and prevent counterfeiting</p>
+      </div>
+
+      <div class="transfer-card">
+        <h3>Transfer Certificate Ownership</h3>
+        
+        <label for="transferCertId">Certificate ID</label>
+        <input type="text" id="transferCertId" placeholder="Enter certificate ID to transfer">
+        
+        <label for="recipientAddress">Recipient Wallet Address</label>
+        <input type="text" id="recipientAddress" placeholder="Enter recipient's wallet address (0x...)">
+        
+        <button id="transferCertBtn">Transfer Certificate</button>
+      </div>
+
+      <div class="loading" id="transferLoading">
+        <div class="spinner"></div>
+        <p>Processing transfer...</p>
+      </div>
+
+      <div id="transferResult"></div>
     </div>
   </div>
 
+  <div class="nav-links">
+    <p><strong>Navigate to:</strong></p>
+    <a href="index.html">Certificate Verification</a>
+    <a href="manufacturer.html">Manufacturer Portal</a>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

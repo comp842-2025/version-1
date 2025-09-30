@@ -1,5 +1,4 @@
-// app.js - Certificate Validation DApp - Complete Implementation
-// Save this file as "app.js" in your project root directory
+// app.js - Certificate Validation DApp - Complete Implementation with Enhanced Features
 
 // ==================== CONFIGURATION ====================
 window.CONTRACT_ADDRESS = "0xcc8a9a1d20ba4da17130be63ff12a74229d11fa8";
@@ -39,9 +38,11 @@ window.addEventListener('load', async () => {
   await initPublicProvider();
   setupWalletButtons();
   setupVerifyButton();
-  setupAdminButtons();
-  setupOwnerButtons();
+  setupManufacturerButtons();
+  setupAdminManagementButtons();
+  setupTransferButtons();
   setupQRScanner();
+  setupQRUpload();
   
   // Check for existing wallet connection
   if (window.ethereum) {
@@ -86,6 +87,7 @@ async function connectWallet() {
   
   try {
     showLoading('issueLoading', true);
+    showLoading('transferLoading', true);
     
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     if (!accounts || accounts.length === 0) {
@@ -117,6 +119,7 @@ async function connectWallet() {
           showStatus('connectionStatus', 'Please switch to Sepolia network in MetaMask', 'error');
         }
         showLoading('issueLoading', false);
+        showLoading('transferLoading', false);
         return;
       }
     }
@@ -131,19 +134,24 @@ async function connectWallet() {
     const connectBtn = document.getElementById('connectWallet');
     if (connectBtn) connectBtn.style.display = 'none';
     
-    const adminControls = document.getElementById('adminControls');
-    if (adminControls) adminControls.style.display = 'block';
+    const manufacturerControls = document.getElementById('manufacturerControls');
+    if (manufacturerControls) manufacturerControls.style.display = 'block';
+    
+    const transferSection = document.getElementById('transferSection');
+    if (transferSection) transferSection.style.display = 'block';
     
     const statusControls = document.getElementById('adminStatusControls');
     if (statusControls) statusControls.style.display = 'block';
     
     showLoading('issueLoading', false);
+    showLoading('transferLoading', false);
     console.log('Wallet connected:', userAccount);
     
   } catch (err) {
     console.error('Wallet connection error:', err);
     showStatus('connectionStatus', 'Connection failed: ' + err.message, 'error');
     showLoading('issueLoading', false);
+    showLoading('transferLoading', false);
   }
 }
 
@@ -183,24 +191,19 @@ async function checkAdminStatus(forceRefresh = false) {
     const issueBtn = document.getElementById('issueCertBtn');
     if (issueBtn) issueBtn.disabled = !isCallerAdmin;
     
-    const ownerSection = document.getElementById('ownerSection');
-    const accessDenied = document.getElementById('accessDenied');
-    
-    if (ownerSection) {
-      ownerSection.style.display = isCallerOwner ? 'block' : 'none';
-    }
-    
-    if (accessDenied && userAccount) {
-      accessDenied.style.display = (!isCallerOwner && ownerSection) ? 'block' : 'none';
+    // Show/hide admin management section based on owner status
+    const adminSection = document.querySelector('.section:has(#adminList)');
+    if (adminSection) {
+      adminSection.style.display = isCallerOwner ? 'block' : 'none';
     }
     
     if (isCallerOwner) {
       showStatus('connectionStatus', 'You are the owner - full access granted', 'success');
       await loadAdminList();
     } else if (isCallerAdmin) {
-      showStatus('connectionStatus', 'You are an admin - can issue and revoke certificates', 'success');
+      showStatus('connectionStatus', 'You are an authorized manufacturer - can issue and revoke certificates', 'success');
     } else {
-      showStatus('connectionStatus', 'Connected - verification only (not an admin)', 'info');
+      showStatus('connectionStatus', 'Connected - can transfer certificates', 'info');
     }
     
     console.log('Admin status:', { totalAdmins, isCallerAdmin, isCallerOwner });
@@ -222,10 +225,10 @@ async function loadAdminList() {
     const listEl = document.getElementById('adminList');
     if (listEl) {
       listEl.innerHTML = `
-        <strong>Admin Information:</strong><br>
-        Total Admins: ${totalAdmins}<br>
+        <strong>Manufacturer Information:</strong><br>
+        Total Authorized Manufacturers: ${totalAdmins}<br>
         Contract Owner: ${ownerAddr}<br>
-        <small>Use "Check Admin Status" to verify specific addresses</small>
+        <small>Use "Check Authorization Status" to verify specific addresses</small>
       `;
       listEl.className = 'status info';
     }
@@ -233,7 +236,7 @@ async function loadAdminList() {
     console.error('Load admin list error:', err);
     const listEl = document.getElementById('adminList');
     if (listEl) {
-      listEl.innerHTML = '<span class="error">Error loading admin info</span>';
+      listEl.innerHTML = '<span class="error">Error loading manufacturer info</span>';
     }
   }
 }
@@ -257,14 +260,24 @@ async function verifyCert() {
     showLoading('verifyLoading', true);
     console.log('Verifying certificate:', certId);
     
-    const result = await publicContract.getCertificate(certId);
+    // Parse certificate data if it contains JSON
+    let parsedData = null;
+    try {
+      parsedData = JSON.parse(certId);
+    } catch (e) {
+      // Not JSON, treat as regular cert ID
+    }
+    
+    const actualCertId = parsedData ? parsedData.certId : certId;
+    
+    const result = await publicContract.getCertificate(actualCertId);
     const [productName, mfgName, mfgDateBN, isValid] = result;
     const mfgDateNum = mfgDateBN.toNumber();
     
     if (!productName && mfgDateNum === 0) {
       showVerificationResult(`
         <h4>Certificate Not Found</h4>
-        <p>No certificate found with ID: <strong>${certId}</strong></p>
+        <p>No certificate found with ID: <strong>${actualCertId}</strong></p>
         <p>Please check the ID and try again.</p>
       `, 'error');
     } else {
@@ -274,12 +287,12 @@ async function verifyCert() {
         day: 'numeric'
       }) : 'Not specified';
       
-      showVerificationResult(`
+      let detailsHtml = `
         <div class="certificate-details">
           <h4>Certificate Verification Result</h4>
           <div class="detail-row">
             <span class="detail-label">Certificate ID:</span>
-            <span class="detail-value">${certId}</span>
+            <span class="detail-value">${actualCertId}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Status:</span>
@@ -298,9 +311,43 @@ async function verifyCert() {
           <div class="detail-row">
             <span class="detail-label">Manufacturing Date:</span>
             <span class="detail-value">${dateStr}</span>
-          </div>
-        </div>
-      `, isValid ? 'success' : 'error');
+          </div>`;
+      
+      // Add extra details if available from QR code
+      if (parsedData) {
+        if (parsedData.location) {
+          detailsHtml += `
+          <div class="detail-row">
+            <span class="detail-label">Manufacturing Location:</span>
+            <span class="detail-value">${parsedData.location}</span>
+          </div>`;
+        }
+        if (parsedData.intendedRegion) {
+          detailsHtml += `
+          <div class="detail-row">
+            <span class="detail-label">Intended Region of Sale:</span>
+            <span class="detail-value">${parsedData.intendedRegion}</span>
+          </div>`;
+        }
+        if (parsedData.details) {
+          detailsHtml += `
+          <div class="detail-row">
+            <span class="detail-label">Product Details:</span>
+            <span class="detail-value">${parsedData.details}</span>
+          </div>`;
+        }
+        if (parsedData.notes) {
+          detailsHtml += `
+          <div class="detail-row">
+            <span class="detail-label">Additional Notes:</span>
+            <span class="detail-value">${parsedData.notes}</span>
+          </div>`;
+        }
+      }
+      
+      detailsHtml += '</div>';
+      
+      showVerificationResult(detailsHtml, isValid ? 'success' : 'error');
     }
     
     showLoading('verifyLoading', false);
@@ -315,12 +362,14 @@ async function verifyCert() {
 // ==================== CERTIFICATE ISSUANCE ====================
 async function issueCert() {
   const productName = document.getElementById('productName')?.value.trim();
-  const mfgName = document.getElementById('mfgName')?.value.trim();
   const mfgDate = document.getElementById('mfgDate')?.value.trim();
-  const certId = document.getElementById('certificateId')?.value.trim();
+  const location = document.getElementById('location')?.value.trim();
+  const intendedRegion = document.getElementById('intendedRegion')?.value.trim();
+  const details = document.getElementById('details')?.value.trim() || '';
+  const notes = document.getElementById('notes')?.value.trim() || '';
   
-  if (!productName || !mfgName || !mfgDate || !certId) {
-    showStatus('connectionStatus', 'Please fill in all fields', 'error');
+  if (!productName || !mfgDate || !location || !intendedRegion) {
+    showStatus('connectionStatus', 'Please fill in all required fields', 'error');
     return;
   }
   
@@ -340,10 +389,31 @@ async function issueCert() {
       return;
     }
     
-    console.log('Issuing certificate:', { certId, productName, mfgName, timestamp });
+    // Generate unique certificate ID
+    const certId = generateCertId();
+    
+    // Create comprehensive certificate data for QR code
+    const certData = {
+      certId: certId,
+      productName: productName,
+      location: location,
+      intendedRegion: intendedRegion,
+      details: details,
+      notes: notes,
+      mfgDate: mfgDate
+    };
+    
+    console.log('Issuing certificate:', certId);
     showStatus('connectionStatus', 'Preparing transaction...', 'info');
     
-    const tx = await walletContract.issueCertificate(certId, productName, mfgName, timestamp);
+    // Store basic info on blockchain (productName will serve as combined info)
+    const blockchainData = JSON.stringify({
+      name: productName,
+      location: location,
+      region: intendedRegion
+    });
+    
+    const tx = await walletContract.issueCertificate(certId, blockchainData, location, timestamp);
     showStatus('connectionStatus', 'Transaction submitted. Waiting for confirmation...', 'info');
     
     const receipt = await tx.wait();
@@ -351,11 +421,16 @@ async function issueCert() {
     
     showStatus('connectionStatus', `Certificate issued successfully!<br>TX: ${receipt.transactionHash.slice(0,10)}...`, 'success');
     
+    // Generate and display QR code
+    await generateQRCode(JSON.stringify(certData), certId);
+    
     // Clear form
     document.getElementById('productName').value = '';
-    document.getElementById('mfgName').value = '';
     document.getElementById('mfgDate').value = '';
-    document.getElementById('certificateId').value = '';
+    document.getElementById('location').value = '';
+    document.getElementById('intendedRegion').value = '';
+    document.getElementById('details').value = '';
+    document.getElementById('notes').value = '';
     
     showLoading('issueLoading', false);
     
@@ -371,6 +446,92 @@ async function issueCert() {
     showLoading('issueLoading', false);
   }
 }
+
+function generateCertId() {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 15);
+  return `CERT-${timestamp}-${random}`.toUpperCase();
+}
+
+async function generateQRCode(data, certId) {
+  const canvas = document.getElementById('qrCodeCanvas');
+  const display = document.getElementById('qrDisplay');
+  const certIdSpan = document.getElementById('generatedCertId');
+  
+  if (!canvas || !display) return;
+  
+  try {
+    if (typeof QRCode !== 'undefined') {
+      await QRCode.toCanvas(canvas, data, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      if (certIdSpan) certIdSpan.textContent = certId;
+      display.style.display = 'block';
+      
+      // Scroll to QR code
+      display.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      console.error('QRCode library not loaded');
+      showStatus('connectionStatus', 'QR code generation unavailable', 'warning');
+    }
+  } catch (err) {
+    console.error('QR generation error:', err);
+    showStatus('connectionStatus', 'Error generating QR code: ' + err.message, 'error');
+  }
+}
+
+// ==================== QR CODE ACTIONS ====================
+window.downloadQR = function() {
+  const canvas = document.getElementById('qrCodeCanvas');
+  const certId = document.getElementById('generatedCertId')?.textContent || 'certificate';
+  
+  if (canvas) {
+    const link = document.createElement('a');
+    link.download = `${certId}_QRCode.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+  }
+};
+
+window.printQR = function() {
+  const canvas = document.getElementById('qrCodeCanvas');
+  const certId = document.getElementById('generatedCertId')?.textContent || 'Certificate';
+  
+  if (canvas) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Certificate QR Code</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              text-align: center; 
+              padding: 20px;
+            }
+            h2 { margin-bottom: 10px; }
+            p { margin: 5px 0; }
+            img { margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <h2>Certificate QR Code</h2>
+          <p><strong>Certificate ID:</strong> ${certId}</p>
+          <img src="${canvas.toDataURL()}" />
+          <p>Scan to verify product authenticity</p>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  }
+};
 
 // ==================== CERTIFICATE REVOCATION ====================
 async function revokeCert() {
@@ -432,13 +593,13 @@ async function addNewAdmin() {
   
   try {
     showLoading('adminLoading', true);
-    console.log('Adding admin:', addr);
+    console.log('Adding manufacturer:', addr);
     
     const tx = await walletContract.addAdmin(addr);
-    showStatus('connectionStatus', 'Adding admin...', 'info');
+    showStatus('connectionStatus', 'Adding manufacturer...', 'info');
     
     await tx.wait();
-    showStatus('connectionStatus', 'Admin added successfully!', 'success');
+    showStatus('connectionStatus', 'Manufacturer added successfully!', 'success');
     
     document.getElementById('newAdminAddress').value = '';
     await loadAdminList();
@@ -448,9 +609,9 @@ async function addNewAdmin() {
   } catch (err) {
     console.error('Add admin error:', err);
     let errorMsg = err.reason || err.message;
-    if (errorMsg.includes('already admin')) errorMsg = 'Address is already an admin';
+    if (errorMsg.includes('already admin')) errorMsg = 'Address is already a manufacturer';
     
-    showStatus('connectionStatus', 'Failed to add admin: ' + errorMsg, 'error');
+    showStatus('connectionStatus', 'Failed to add manufacturer: ' + errorMsg, 'error');
     showLoading('adminLoading', false);
   }
 }
@@ -470,13 +631,13 @@ async function removeAdmin() {
   
   try {
     showLoading('adminLoading', true);
-    console.log('Removing admin:', addr);
+    console.log('Removing manufacturer:', addr);
     
     const tx = await walletContract.removeAdmin(addr);
-    showStatus('connectionStatus', 'Removing admin...', 'info');
+    showStatus('connectionStatus', 'Removing manufacturer...', 'info');
     
     await tx.wait();
-    showStatus('connectionStatus', 'Admin removed successfully!', 'success');
+    showStatus('connectionStatus', 'Manufacturer removed successfully!', 'success');
     
     document.getElementById('removeAdminAddress').value = '';
     await loadAdminList();
@@ -486,9 +647,9 @@ async function removeAdmin() {
   } catch (err) {
     console.error('Remove admin error:', err);
     let errorMsg = err.reason || err.message;
-    if (errorMsg.includes('not admin')) errorMsg = 'Address is not an admin';
+    if (errorMsg.includes('not admin')) errorMsg = 'Address is not a manufacturer';
     
-    showStatus('connectionStatus', 'Failed to remove admin: ' + errorMsg, 'error');
+    showStatus('connectionStatus', 'Failed to remove manufacturer: ' + errorMsg, 'error');
     showLoading('adminLoading', false);
   }
 }
@@ -506,7 +667,7 @@ async function checkSpecificAdmin() {
   
   try {
     showLoading('adminLoading', true);
-    console.log('Checking admin status:', addr);
+    console.log('Checking authorization status:', addr);
     
     const isAdmin = await publicContract.isAdmin(addr);
     const owner = await publicContract.owner();
@@ -516,13 +677,13 @@ async function checkSpecificAdmin() {
     let statusClass = '';
     
     if (isOwner) {
-      statusText = 'Owner (has admin rights)';
+      statusText = 'Owner (has manufacturer rights)';
       statusClass = 'success';
     } else if (isAdmin) {
-      statusText = 'Admin';
+      statusText = 'Authorized Manufacturer';
       statusClass = 'success';
     } else {
-      statusText = 'Not an admin';
+      statusText = 'Not authorized as manufacturer';
       statusClass = 'info';
     }
     
@@ -540,6 +701,51 @@ async function checkSpecificAdmin() {
     console.error('Check admin error:', err);
     resultEl.innerHTML = '<div class="status error">Error checking status: ' + err.message + '</div>';
     showLoading('adminLoading', false);
+  }
+}
+
+// ==================== CERTIFICATE TRANSFER ====================
+async function transferCert() {
+  const certId = document.getElementById('transferCertId')?.value.trim();
+  const recipient = document.getElementById('recipientAddress')?.value.trim();
+  
+  if (!certId) {
+    showTransferResult('Please enter a certificate ID', 'error');
+    return;
+  }
+  
+  if (!recipient || !ethers.utils.isAddress(recipient)) {
+    showTransferResult('Please enter a valid recipient address', 'error');
+    return;
+  }
+  
+  if (!walletContract) {
+    showTransferResult('Please connect your wallet first', 'error');
+    return;
+  }
+  
+  try {
+    showLoading('transferLoading', true);
+    console.log('Transferring certificate:', certId, 'to', recipient);
+    
+    showTransferResult('Preparing transfer transaction...', 'info');
+    
+    // Note: This requires a transfer function in the smart contract
+    // For now, we'll show a placeholder message
+    showTransferResult(`
+      <h4>Transfer Feature</h4>
+      <p>Certificate transfer functionality requires additional smart contract methods.</p>
+      <p><strong>Certificate ID:</strong> ${certId}</p>
+      <p><strong>Recipient:</strong> ${recipient}</p>
+      <p>Please contact the contract owner to implement transfer functionality.</p>
+    `, 'info');
+    
+    showLoading('transferLoading', false);
+    
+  } catch (err) {
+    console.error('Transfer error:', err);
+    showTransferResult('Transfer failed: ' + err.message, 'error');
+    showLoading('transferLoading', false);
   }
 }
 
@@ -656,6 +862,84 @@ function stopQRScanner() {
   if (scanBtn) scanBtn.textContent = 'Scan QR Code';
 }
 
+// ==================== QR CODE UPLOAD ====================
+function setupQRUpload() {
+  const uploadBtn = document.getElementById('uploadQRBtn');
+  if (!uploadBtn) return;
+  
+  uploadBtn.addEventListener('click', handleQRUpload);
+}
+
+async function handleQRUpload() {
+  const fileInput = document.getElementById('qrUpload');
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    showVerificationResult('Please select an image file', 'error');
+    return;
+  }
+  
+  const file = fileInput.files[0];
+  
+  try {
+    showLoading('verifyLoading', true);
+    
+    const imageData = await readImageFile(file);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    
+    if (code) {
+      console.log('QR Code detected from image:', code.data);
+      
+      const input = document.getElementById('verifyCertId');
+      if (input) {
+        input.value = code.data;
+      }
+      
+      await verifyCert();
+    } else {
+      showVerificationResult('No QR code found in the image. Please try another image.', 'error');
+      showLoading('verifyLoading', false);
+    }
+    
+  } catch (err) {
+    console.error('QR upload error:', err);
+    showVerificationResult('Error reading QR code from image: ' + err.message, 'error');
+    showLoading('verifyLoading', false);
+  }
+}
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+      const img = new Image();
+      
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        resolve(imageData);
+      };
+      
+      img.onerror = function() {
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = e.target.result;
+    };
+    
+    reader.onerror = function() {
+      reject(new Error('Failed to read file'));
+    };
+    
+    reader.readAsDataURL(file);
+  });
+}
+
 // ==================== EVENT HANDLERS ====================
 function setupWalletButtons() {
   const connectBtn = document.getElementById('connectWallet');
@@ -691,7 +975,7 @@ function setupVerifyButton() {
   }
 }
 
-function setupAdminButtons() {
+function setupManufacturerButtons() {
   const issueBtn = document.getElementById('issueCertBtn');
   if (issueBtn) {
     issueBtn.addEventListener('click', issueCert);
@@ -703,7 +987,7 @@ function setupAdminButtons() {
   }
 }
 
-function setupOwnerButtons() {
+function setupAdminManagementButtons() {
   const addBtn = document.getElementById('addAdminBtn');
   if (addBtn) {
     addBtn.addEventListener('click', addNewAdmin);
@@ -720,6 +1004,13 @@ function setupOwnerButtons() {
   }
 }
 
+function setupTransferButtons() {
+  const transferBtn = document.getElementById('transferCertBtn');
+  if (transferBtn) {
+    transferBtn.addEventListener('click', transferCert);
+  }
+}
+
 function handleAccountsChanged(accounts) {
   console.log('Accounts changed:', accounts);
   
@@ -732,11 +1023,11 @@ function handleAccountsChanged(accounts) {
     const connectBtn = document.getElementById('connectWallet');
     if (connectBtn) connectBtn.style.display = 'block';
     
-    const adminControls = document.getElementById('adminControls');
-    if (adminControls) adminControls.style.display = 'none';
+    const manufacturerControls = document.getElementById('manufacturerControls');
+    if (manufacturerControls) manufacturerControls.style.display = 'none';
     
-    const ownerSection = document.getElementById('ownerSection');
-    if (ownerSection) ownerSection.style.display = 'none';
+    const transferSection = document.getElementById('transferSection');
+    if (transferSection) transferSection.style.display = 'none';
     
     const statusControls = document.getElementById('adminStatusControls');
     if (statusControls) statusControls.style.display = 'none';
@@ -775,6 +1066,13 @@ function showVerificationResult(msg, type = '') {
   }
 }
 
+function showTransferResult(msg, type = '') {
+  const el = document.getElementById('transferResult');
+  if (el) {
+    el.innerHTML = `<div class="status ${type}">${msg}</div>`;
+  }
+}
+
 function showLoading(elementId, show) {
   const el = document.getElementById(elementId);
   if (el) {
@@ -788,9 +1086,13 @@ window.connectWallet = connectWallet;
 window.checkAdminStatus = checkAdminStatus;
 window.issueCert = issueCert;
 window.revokeCert = revokeCert;
+window.transferCert = transferCert;
 
 console.log('Certificate DApp loaded. Available functions:', {
   verifyCert: 'Verify a certificate',
   connectWallet: 'Connect MetaMask',
-  checkAdminStatus: 'Check admin permissions'
+  checkAdminStatus: 'Check authorization permissions',
+  issueCert: 'Issue new certificate (manufacturer only)',
+  revokeCert: 'Revoke certificate (manufacturer only)',
+  transferCert: 'Transfer certificate ownership'
 });
